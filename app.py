@@ -78,22 +78,33 @@ st.markdown("""
     section[data-testid="stSidebar"] .stMarkdown label,
     section[data-testid="stSidebar"] .stMarkdown li,
     section[data-testid="stSidebar"] .stMarkdown div,
-    section[data-testid="stSidebar"] label,
     section[data-testid="stSidebar"] .stSlider label,
+    section[data-testid="stSidebar"] .stSlider p,
+    section[data-testid="stSidebar"] .stSlider span,
     section[data-testid="stSidebar"] .stTextInput label,
     section[data-testid="stSidebar"] .stSelectbox label,
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] span,
     section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p,
-    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] span,
-    section[data-testid="stSidebar"] .stElementContainer label {
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] span {
         color: #ffffff !important;
+    }
+    section[data-testid="stSidebar"] button p,
+    section[data-testid="stSidebar"] button span {
+        color: inherit !important;
     }
     section[data-testid="stSidebar"] small,
     section[data-testid="stSidebar"] .stCaption,
     section[data-testid="stSidebar"] caption,
     section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
         color: rgba(255, 255, 255, 0.7) !important;
+    }
+    section[data-testid="stSidebar"] button {
+        background-color: #374151 !important;
+        color: #ffffff !important;
+        border: 1px solid #4b5563 !important;
+    }
+    section[data-testid="stSidebar"] button p,
+    section[data-testid="stSidebar"] button span {
+        color: #ffffff !important;
     }
 
     /* ── Metric Cards ── */
@@ -285,6 +296,11 @@ st.markdown("""
         background: var(--bg-card) !important;
         border: 1px solid var(--border-color) !important;
         border-radius: 12px !important;
+    }
+    details p, details li, details strong, details span,
+    details h1, details h2, details h3, details h4,
+    details summary, details div {
+        color: #ffffff !important;
     }
 
     /* ── Hide default streamlit elements ── */
@@ -1116,17 +1132,43 @@ if active_ticker:
     y_labels = sensitivity_df.index.tolist()
 
     # Color based on whether above or below current price
+    # Normalize z_values relative to current_price so the color midpoint = market price
+    z_min = np.min(z_values)
+    z_max = np.max(z_values)
+
+    # If current_price falls within the range, set it as the midpoint
+    # If all values are below market price, scale from red to orange (all overvalued)
+    # If all values are above market price, scale from light green to green (all undervalued)
+    if z_max <= current_price:
+        # All overvalued — red to yellow gradient
+        custom_colorscale = [
+            [0, '#ef4444'],      # Deep red (most overvalued)
+            [0.5, '#f59e0b'],    # Orange
+            [1.0, '#fbbf24']     # Yellow (least overvalued, but still below price)
+        ]
+    elif z_min >= current_price:
+        # All undervalued — light green to green gradient
+        custom_colorscale = [
+            [0, '#86efac'],      # Light green (least undervalued)
+            [0.5, '#34d399'],    # Medium green
+            [1.0, '#059669']     # Deep green (most undervalued)
+        ]
+    else:
+        # Mixed — price falls within range, pivot colors around it
+        price_norm = (current_price - z_min) / (z_max - z_min)
+        custom_colorscale = [
+            [0, '#ef4444'],                          # Deep red (most overvalued)
+            [price_norm * 0.5, '#f59e0b'],           # Orange
+            [price_norm, '#fbbf24'],                  # Yellow (at market price)
+            [price_norm + (1 - price_norm) * 0.3, '#34d399'],  # Light green
+            [1.0, '#10b981']                          # Deep green (most undervalued)
+        ]
+
     fig_heat = go.Figure(data=go.Heatmap(
         z=z_values,
         x=x_labels,
         y=y_labels,
-        colorscale=[
-            [0, '#ef4444'],      # Red (overvalued)
-            [0.3, '#f59e0b'],    # Yellow
-            [0.5, '#fbbf24'],    # Gold (near fair)
-            [0.7, '#34d399'],    # Light green
-            [1.0, '#10b981']     # Green (undervalued)
-        ],
+        colorscale=custom_colorscale,
         text=[[f"${v:.2f}" for v in row] for row in z_values],
         texttemplate="%{text}",
         textfont=dict(size=11, color='white', family='Inter'),
@@ -1221,7 +1263,8 @@ if active_ticker:
                 yanchor='bottom',
                 y=1.02,
                 xanchor='right',
-                x=1
+                x=1,
+                font=dict(color='#ffffff')
             )
         )
 
